@@ -168,7 +168,8 @@ $(_F_SPINNAKER): $(_F_MINIO) $(MINIO_ENDPOINT) $(_HALYARD)
 	$(HALYARD) config storage s3 edit --path-style-access true
 	$(HALYARD) config storage edit --type s3
 	$(HALYARD) config stats disable
-	$(HALYARD) deploy apply \
+	sleep 5
+	$(HALYARD) deploy apply --no-validate \
 	&& touch $@
 
 $(_F_NAMESPACE):

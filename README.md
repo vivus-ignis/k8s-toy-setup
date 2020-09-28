@@ -56,7 +56,7 @@ To play with the example webapp, wait until the pod is running and issue these c
 
 ```bash
 export POD_NAME=$(kubectl get pods --namespace apps -l "app.kubernetes.io/name=webapp,app.kubernetes.io/instance=webapp-0-1601235252" -o jsonpath="{.items[0].metadata.name}")
-export POD_NAME=$(kubectl get pods --namespace apps -l "app.kubernetes.io/name=webapp,app.kubernetes.io/instance=webapp-0-1601235252" -o jsonpath="{.items[0].metadata.name}")
+kubectl --namespace apps port-forward $POD_NAME 8080:80
 ```
 
 In another terminal session you can try to query the example webapp:
