@@ -162,7 +162,7 @@ $(_F_SPINNAKER): $(_F_MINIO) $(MINIO_ENDPOINT) $(_HALYARD)
 	  $(HALYARD) config provider kubernetes account add k8s-toy --context $$CONTEXT
 	$(HALYARD) config deploy edit --type distributed --account-name k8s-toy
 	$(HALYARD) config version edit --version $(SPINNAKER_VERSION)
-	$(HALYARD) config storage s3 edit --endpoint `cat $(MINIO_ENDPOINT)` \
+	$(HALYARD) config storage s3 edit --endpoint http://`cat $(MINIO_ENDPOINT)` \
 	  --access-key-id $(MINIO_ACCESS_KEY) \
 	  --secret-access-key $(MINIO_SECRET_KEY)
 	$(HALYARD) config storage s3 edit --path-style-access true

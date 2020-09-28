@@ -50,7 +50,10 @@ kubectl get nodes
 kubectl get pod -n apps
 ```
 
-Please note that pulling an image for the example webapp takes quite some time (~ 10 mins on my machine).
+Please note that pulling docker images onto cluster nodes will take
+some additional time (~ 10 mins on my machine), so spinnaker and the
+example app will not be available until you see 'Running' in pod
+listings.
 
 To play with the example webapp, wait until the pod is running and issue these commands:
 
@@ -66,6 +69,17 @@ curl localhost
 curl localhost/hello
 ```
 
+To access spinnaker UI type in your terminal session:
+
+```bash
+hal deploy connect
+```
+
+and navigate to `localhost:9000` in your browser.
+
+
+### Uninstall
+
 To remove the toy cluster along with its configuration and any related state, type
 
 ```bash
@@ -75,7 +89,9 @@ make clean
 Configuration
 -------------
 
-Open `Makefile` in your editor of choice and search for a banner `CONFIGURATION`. Change values of variables you are interested in and rerun make:
+Open `Makefile` in your editor of choice and search for a banner
+`CONFIGURATION`. Change values of variables you are interested in and
+rerun make:
 
 ```bash
 make clean
@@ -85,6 +101,7 @@ make
 Known Issues
 ------------
 
+- front50 pod from spinnaker fails to connect to minio
 - istioctl tarball is being unpacked on every make run
 
 Next Steps
