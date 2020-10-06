@@ -19,6 +19,7 @@ _KUBECTL    := ${CURDIR}/$(TOOLS)/kubectl
 _HELM       := ${CURDIR}/$(TOOLS)/helm
 _ISTIOCTL   := ${CURDIR}/$(TOOLS)/istio/bin/istioctl
 _HALYARD    := ${CURDIR}/$(TOOLS)/hal
+_OCTANT     := ${CURDIR}/$(TOOLS)/octant
 
 KUBECONFIG := $(CONFIGS)/kubeconfig
 
@@ -45,6 +46,8 @@ MINIO_ENDPOINT := $(CONFIGS)/minio_endpoint
 NS            := apps
 ISTIO_PROFILE := demo
 
+WITH_SPINNAKER := false   # set to 'true' to deploy spinnaker
+
 MINIO_SECRET_KEY := Pashru@nowjag5
 MINIO_ACCESS_KEY := goc.QuiocIsUk7
 
@@ -53,6 +56,7 @@ KIND_DOWNLOAD_URL       := https://kind.sigs.k8s.io/dl/v0.9.0/kind-linux-amd64
 KUBECTL_DOWNLOAD_URL    := https://amazon-eks.s3.us-west-2.amazonaws.com/1.17.9/2020-08-04/bin/linux/amd64/kubectl
 HELM_DOWNLOAD_URL       := https://get.helm.sh/helm-v3.3.4-linux-amd64.tar.gz
 ISTIO_DOWNLOAD_URL      := https://github.com/istio/istio/releases/download/1.7.2/istio-1.7.2-linux-amd64.tar.gz
+OCTANT_DOWNLOAD_URL     := https://github.com/vmware-tanzu/octant/releases/download/v0.16.0/octant_0.16.0_Linux-64bit.tar.gz
 
 SPINNAKER_VERSION       := 1.22.1
 
@@ -63,7 +67,7 @@ $(shell mkdir -p $(FLAGS))
 $(shell mkdir -p $(CONFIGS))
 $(shell mkdir -p $(WEBAPP))
 
-default: .env $(_KIND) $(_KUBECTL) $(_HELM) $(_ISTIOCTL) \
+default: .env $(_KIND) $(_KUBECTL) $(_HELM) $(_ISTIOCTL) $(_OCTANT) \
   $(_F_CLUSTER) $(_F_KIND_NETWORK) $(_F_NAMESPACE) $(_F_ISTIO) $(_F_SPINNAKER) \
   $(_F_WEBAPP_HELM_INSTALL) .env
 	@echo "-- Ready."
@@ -109,6 +113,16 @@ $(_ISTIOCTL): $(TOOLS)/istio.tar.gz
 	touch $@
 	chmod +x $@
 
+$(TOOLS)/octant.tar.gz:
+	curl -Lo $@ "$(OCTANT_DOWNLOAD_URL)" > /dev/null
+
+$(_OCTANT): $(TOOLS)/octant.tar.gz
+	tar xzf $(TOOLS)/octant.tar.gz -C $(TOOLS)
+	mv $(TOOLS)/octant_*/octant $(TOOLS)/octant
+	rm -rf $(TOOLS)/octant_*
+	touch $@
+	chmod +x $@
+
 $(_HALYARD): $(_F_HALYARD_DAEMON)
 	sed -n 's/^#hal://p' < Makefile > $@
 	chmod +x $@
@@ -143,7 +157,7 @@ $(_F_HALYARD_DAEMON):
 	  -d \
 	  gcr.io/spinnaker-marketplace/halyard:stable \
 	&& touch $@ \
-	&& sleep 15
+	&& sleep 20
 
 $(_F_MINIO):
 	$(KUBECTL) create namespace minio
@@ -157,6 +171,7 @@ $(MINIO_ENDPOINT):
 	SVC_NAME=`$(KUBECTL) get svc -n minio --output=jsonpath={.items..metadata.name}` ; \
 	echo "$${SVC_NAME}.minio.svc.cluster.local" > $@
 
+ifeq ($(WITH_SPINNAKER), true)
 $(_F_SPINNAKER): $(_F_MINIO) $(MINIO_ENDPOINT) $(_HALYARD)
 	$(HALYARD) config provider kubernetes enable
 	CONTEXT=`$(KUBECTL) config current-context`; \
@@ -169,9 +184,13 @@ $(_F_SPINNAKER): $(_F_MINIO) $(MINIO_ENDPOINT) $(_HALYARD)
 	$(HALYARD) config storage s3 edit --path-style-access true
 	$(HALYARD) config storage edit --type s3
 	$(HALYARD) config stats disable
-	sleep 5
-	$(HALYARD) deploy apply --no-validate \
+	sleep 10
+	$(HALYARD) deploy apply \
 	&& touch $@
+else
+$(_F_SPINNAKER):
+	touch $@
+endif
 
 $(_F_NAMESPACE):
 	$(KUBECTL) create namespace $(NS) \
@@ -180,6 +199,7 @@ $(_F_NAMESPACE):
 
 $(_F_ISTIO):
 	$(ISTIOCTL) install --set profile=$(ISTIO_PROFILE) \
+	  --set values.prometheus.enabled=true \
 	&& touch $@
 
 $(WEBAPP_CODE)-$(WEBAPP_CHART_VERSION):

@@ -12,10 +12,11 @@ Features
 
 - installation of binaries only happens in the directory with this README
 - modern k8s tools are presented
-  - kind for a local kubernetes
-  - istio & spinnaker installed
-  - minio as a persistence storage for spinnaker
-  - example dockerfile for a python web application + a helm chart
+  - cluster management: kind
+  - web dashboard: octant
+  - continuous deployment: istio / prometheus / spinnaker combo
+  - object storage: minio
+  - example python web application (dockerfile & a helm chart)
 
 Requirements
 ------------
@@ -77,6 +78,8 @@ hal deploy connect
 ```
 
 and navigate to `localhost:9000` in your browser.
+
+Octant dashboard can be started by simply typing `octant`.
 
 
 ### Uninstall
