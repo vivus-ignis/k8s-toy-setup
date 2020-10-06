@@ -25,6 +25,7 @@ Before working with k8s-toy-setup make sure you have the following software inst
 - docker
 - tar
 - curl
+- sed
 - make
 
 The only supported OS is Linux.
@@ -58,7 +59,7 @@ listings.
 To play with the example webapp, wait until the pod is running and issue these commands:
 
 ```bash
-export POD_NAME=$(kubectl get pods --namespace apps -l "app.kubernetes.io/name=webapp,app.kubernetes.io/instance=webapp-0-1601235252" -o jsonpath="{.items[0].metadata.name}")
+export POD_NAME=$(kubectl get pods --namespace apps -l "app.kubernetes.io/name=webapp" -o jsonpath="{.items[0].metadata.name}")
 kubectl --namespace apps port-forward $POD_NAME 8080:80
 ```
 
