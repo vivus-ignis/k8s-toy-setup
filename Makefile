@@ -30,7 +30,7 @@ HALYARD  := $(_HALYARD)
 
 WEBAPP_CODE          := $(WEBAPP)/app.py
 WEBAPP_DOCKERFILE    := $(WEBAPP)/Dockerfile
-WEBAPP_CHART_VERSION := 0.1.10
+WEBAPP_CHART_VERSION := 0.1.11
 
 MINIO_ENDPOINT := $(CONFIGS)/minio_endpoint
 
@@ -175,19 +175,21 @@ $(_F_SPINNAKER): $(_F_MINIO) $(MINIO_ENDPOINT) $(_HALYARD)
 
 $(_F_NAMESPACE):
 	$(KUBECTL) create namespace $(NS) \
+	&& $(KUBECTL) label namespace apps istio-injection=enabled \
 	&& touch $@
 
 $(_F_ISTIO):
 	$(ISTIOCTL) install --set profile=$(ISTIO_PROFILE) \
 	&& touch $@
 
-$(WEBAPP_CODE):
+$(WEBAPP_CODE)-$(WEBAPP_CHART_VERSION):
 	sed -n 's/^#app.py://p' < Makefile > $@
 
 $(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION):
 	sed -n 's/^#webapp_dockerfile://p' < Makefile > $@
 
-$(_F_WEBAPP_DOCKER_IMAGE)-$(WEBAPP_CHART_VERSION): $(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION) $(WEBAPP_CODE)
+$(_F_WEBAPP_DOCKER_IMAGE)-$(WEBAPP_CHART_VERSION): $(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION) $(WEBAPP_CODE) $(WEBAPP_CODE)-$(WEBAPP_CHART_VERSION)
+	mv $(WEBAPP_CODE)-$(WEBAPP_CHART_VERSION) $(WEBAPP_CODE)
 	docker build -t webapp -f $(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION) $(WEBAPP)
 	docker tag webapp localhost:5000/webapp:$(WEBAPP_CHART_VERSION)
 	docker push localhost:5000/webapp:$(WEBAPP_CHART_VERSION) \
