@@ -103,7 +103,6 @@ Known Issues
 ------------
 
 - front50 pod from spinnaker fails to connect to minio
-- istioctl tarball is being unpacked on every make run
 
 Next Steps
 ----------
