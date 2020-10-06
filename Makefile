@@ -28,9 +28,9 @@ HELM     := KUBECONFIG=$(KUBECONFIG) $(_HELM)
 ISTIOCTL := KUBECONFIG=$(KUBECONFIG) $(_ISTIOCTL)
 HALYARD  := $(_HALYARD)
 
-WEBAPP_CODE       := $(WEBAPP)/app.py
-WEBAPP_DOCKERFILE := $(WEBAPP)/Dockerfile
-
+WEBAPP_CODE          := $(WEBAPP)/app.py
+WEBAPP_DOCKERFILE    := $(WEBAPP)/Dockerfile
+WEBAPP_CHART_VERSION := 0.1.10
 
 MINIO_ENDPOINT := $(CONFIGS)/minio_endpoint
 
@@ -184,23 +184,25 @@ $(_F_ISTIO):
 $(WEBAPP_CODE):
 	sed -n 's/^#app.py://p' < Makefile > $@
 
-$(WEBAPP_DOCKERFILE):
+$(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION):
 	sed -n 's/^#webapp_dockerfile://p' < Makefile > $@
 
-$(_F_WEBAPP_DOCKER_IMAGE): $(WEBAPP_DOCKERFILE) $(WEBAPP_CODE)
-	docker build -t webapp -f $(WEBAPP)/Dockerfile $(WEBAPP)
-	docker tag webapp localhost:5000/webapp:0.1.0
-	docker push localhost:5000/webapp:0.1.0 \
+$(_F_WEBAPP_DOCKER_IMAGE)-$(WEBAPP_CHART_VERSION): $(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION) $(WEBAPP_CODE)
+	docker build -t webapp -f $(WEBAPP_DOCKERFILE)-$(WEBAPP_CHART_VERSION) $(WEBAPP)
+	docker tag webapp localhost:5000/webapp:$(WEBAPP_CHART_VERSION)
+	docker push localhost:5000/webapp:$(WEBAPP_CHART_VERSION) \
 	&& touch $@
 
-$(CONFIGS)/webapp-0.1.0.tgz: $(_F_WEBAPP_DOCKER_IMAGE)
+$(CONFIGS)/webapp-$(WEBAPP_CHART_VERSION).tgz: $(_F_WEBAPP_DOCKER_IMAGE)-$(WEBAPP_CHART_VERSION)
 	cd $(CONFIGS) && $(HELM) create webapp
-	sed -n 's/^#webapp_chart://p' < Makefile > $(CONFIGS)/webapp/Chart.yaml
+	sed -n 's/^#webapp_chart://p' < Makefile \
+	  | sed 's/@WEBAPP_CHART_VERSION@/$(WEBAPP_CHART_VERSION)/g' > $(CONFIGS)/webapp/Chart.yaml
 	sed -n 's/^#webapp_values://p' < Makefile > $(CONFIGS)/webapp/values.yaml
+	sed -n 's/^#webapp_deployment://p' < Makefile > $(CONFIGS)/webapp/templates/deployment.yaml
 	cd $(CONFIGS)/webapp && $(HELM) lint
 	cd $(CONFIGS) && $(HELM) package webapp
 
-$(_F_WEBAPP_HELM_INSTALL): $(CONFIGS)/webapp-0.1.0.tgz
+$(_F_WEBAPP_HELM_INSTALL): $(CONFIGS)/webapp-$(WEBAPP_CHART_VERSION).tgz
 	$(HELM) install --generate-name \
 	  --namespace $(NS) $< \
 	&& touch $@
@@ -231,18 +233,19 @@ $(_F_WEBAPP_HELM_INSTALL): $(CONFIGS)/webapp-0.1.0.tgz
 
 #webapp_dockerfile:FROM python:3.8-buster
 #webapp_dockerfile:RUN pip install fastapi uvicorn
-#webapp_dockerfile:COPY app.py /app/app.py
-#webapp_dockerfile:WORKDIR /app
+#webapp_dockerfile:COPY app.py /src/app/app.py
+#webapp_dockerfile:WORKDIR /src
 #webapp_dockerfile:CMD [ "uvicorn", \
-#webapp_dockerfile:      "app:app", \
-#webapp_dockerfile:      "--host", "0.0.0.0" ]
+#webapp_dockerfile:      "app.app:app", \
+#webapp_dockerfile:      "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug" ]
+#webapp_dockerfile:EXPOSE 8000
 
 #webapp_chart:apiVersion: v2
 #webapp_chart:name: webapp
 #webapp_chart:description: A Helm chart for Kubernetes
 #webapp_chart:type: application
-#webapp_chart:version: 0.1.0
-#webapp_chart:appVersion: 0.1.0
+#webapp_chart:version: @WEBAPP_CHART_VERSION@
+#webapp_chart:appVersion: @WEBAPP_CHART_VERSION@
 
 #webapp_values:replicaCount: 1
 #webapp_values:
@@ -280,7 +283,7 @@ $(_F_WEBAPP_HELM_INSTALL): $(CONFIGS)/webapp-0.1.0.tgz
 #webapp_values:
 #webapp_values:service:
 #webapp_values:  type: ClusterIP
-#webapp_values:  port: 8000
+#webapp_values:  port: 80
 #webapp_values:
 #webapp_values:ingress:
 #webapp_values:  enabled: false
@@ -319,3 +322,60 @@ $(_F_WEBAPP_HELM_INSTALL): $(CONFIGS)/webapp-0.1.0.tgz
 #webapp_values:tolerations: []
 #webapp_values:
 #webapp_values:affinity: {}
+
+#webapp_deployment:apiVersion: apps/v1
+#webapp_deployment:kind: Deployment
+#webapp_deployment:metadata:
+#webapp_deployment:  name: {{ include "webapp.fullname" . }}
+#webapp_deployment:  labels:
+#webapp_deployment:    {{- include "webapp.labels" . | nindent 4 }}
+#webapp_deployment:spec:
+#webapp_deployment:{{- if not .Values.autoscaling.enabled }}
+#webapp_deployment:  replicas: {{ .Values.replicaCount }}
+#webapp_deployment:{{- end }}
+#webapp_deployment:  selector:
+#webapp_deployment:    matchLabels:
+#webapp_deployment:      {{- include "webapp.selectorLabels" . | nindent 6 }}
+#webapp_deployment:  template:
+#webapp_deployment:    metadata:
+#webapp_deployment:    {{- with .Values.podAnnotations }}
+#webapp_deployment:      annotations:
+#webapp_deployment:        {{- toYaml . | nindent 8 }}
+#webapp_deployment:    {{- end }}
+#webapp_deployment:      labels:
+#webapp_deployment:        {{- include "webapp.selectorLabels" . | nindent 8 }}
+#webapp_deployment:    spec:
+#webapp_deployment:      {{- with .Values.imagePullSecrets }}
+#webapp_deployment:      imagePullSecrets:
+#webapp_deployment:        {{- toYaml . | nindent 8 }}
+#webapp_deployment:      {{- end }}
+#webapp_deployment:      serviceAccountName: {{ include "webapp.serviceAccountName" . }}
+#webapp_deployment:      securityContext:
+#webapp_deployment:        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+#webapp_deployment:      containers:
+#webapp_deployment:        - name: {{ .Chart.Name }}
+#webapp_deployment:          securityContext:
+#webapp_deployment:            {{- toYaml .Values.securityContext | nindent 12 }}
+#webapp_deployment:          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+#webapp_deployment:          imagePullPolicy: {{ .Values.image.pullPolicy }}
+#webapp_deployment:          livenessProbe:
+#webapp_deployment:            httpGet:
+#webapp_deployment:              path: /
+#webapp_deployment:              port: 8000
+#webapp_deployment:          readinessProbe:
+#webapp_deployment:            tcpSocket:
+#webapp_deployment:              port: 8000
+#webapp_deployment:          resources:
+#webapp_deployment:            {{- toYaml .Values.resources | nindent 12 }}
+#webapp_deployment:      {{- with .Values.nodeSelector }}
+#webapp_deployment:      nodeSelector:
+#webapp_deployment:        {{- toYaml . | nindent 8 }}
+#webapp_deployment:      {{- end }}
+#webapp_deployment:      {{- with .Values.affinity }}
+#webapp_deployment:      affinity:
+#webapp_deployment:        {{- toYaml . | nindent 8 }}
+#webapp_deployment:      {{- end }}
+#webapp_deployment:      {{- with .Values.tolerations }}
+#webapp_deployment:      tolerations:
+#webapp_deployment:        {{- toYaml . | nindent 8 }}
+#webapp_deployment:      {{- end }}
