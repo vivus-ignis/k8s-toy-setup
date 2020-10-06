@@ -92,6 +92,7 @@ $(_HELM): $(_HELM).tar.gz
 	tar xzf $@.tar.gz  -C $(@D) linux-amd64/helm
 	mv $(@D)/linux-amd64/helm $@
 	rm -rf $(@D)/linux-amd64
+	touch $@
 	chmod +x $@
 
 $(_HELM).tar.gz:
@@ -100,12 +101,12 @@ $(_HELM).tar.gz:
 $(TOOLS)/istio.tar.gz:
 	curl -Lo $@ "$(ISTIO_DOWNLOAD_URL)" > /dev/null
 
-# FIXME: state is updated elsewhere, executes on every run
 $(_ISTIOCTL): $(TOOLS)/istio.tar.gz
 	tar xzf $(TOOLS)/istio.tar.gz -C $(TOOLS)
 	rm -rf $(TOOLS)/istio
 	mv $(TOOLS)/istio-* $(TOOLS)/istio/
 	ln -sf ${CURDIR}/$(TOOLS)/istio/bin/istioctl ${CURDIR}/$(TOOLS)/istioctl
+	touch $@
 	chmod +x $@
 
 $(_HALYARD): $(_F_HALYARD_DAEMON)
